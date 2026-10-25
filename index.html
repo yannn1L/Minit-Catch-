@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <title>Minit Catch!</title>
+    <meta name="description" content="Spectator auto-simulation game featuring tactical rooster arena battles, custom pixel font, and zero-asset procedural audio." />
+    <meta property="og:title" content="Minit Catch!" />
+    <meta property="og:description" content="Spectator auto-simulation game featuring tactical rooster arena battles, custom pixel font, and zero-asset procedural audio." />
+    <meta property="og:type" content="website" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <style>
+      html, body, #root {
+        margin: 0;
+        padding: 0;
+        width: 100%;
+        height: 100%;
+        background: #0d1018;
+        overflow: hidden;
+        touch-action: none;
+        overscroll-behavior: none;
+      }
+      canvas {
+        display: block;
+        image-rendering: pixelated;
+        image-rendering: crisp-edges;
+        outline: none;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
+

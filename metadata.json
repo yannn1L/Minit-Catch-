@@ -1,0 +1,6 @@
+{
+  "name": "Minit Catch!",
+  "description": "Spectator auto-simulation game featuring tactical rooster arena battles, custom pixel font, and zero-asset procedural audio.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
