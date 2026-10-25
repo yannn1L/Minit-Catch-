@@ -9,18 +9,44 @@ TextureStyle.defaultOptions.scaleMode = 'nearest';
 const dpr = (): number => window.devicePixelRatio || 1;
 const physical = (): { w: number; h: number } => ({ w: Math.max(1, Math.floor(window.innerWidth * dpr())), h: Math.max(1, Math.floor(window.innerHeight * dpr())) });
 
-/** WebGPU first, WebGL fallback (GDD gracefulDegrade). */
+/** WebGPU first (if available with timeout), WebGL fallback (GDD gracefulDegrade). */
 async function createApp(): Promise<Application> {
   const { w, h } = physical();
   let lastError: unknown;
-  for (const preference of ['webgpu', 'webgl'] as const) {
+
+  // Only try WebGPU if navigator.gpu exists
+  const hasWebGPU = typeof navigator !== 'undefined' && 'gpu' in navigator && !!navigator.gpu;
+  const preferences: readonly ('webgpu' | 'webgl')[] = hasWebGPU ? ['webgpu', 'webgl'] : ['webgl'];
+
+  for (const preference of preferences) {
     const app = new Application();
     try {
-      await app.init({ preference, width: w, height: h, resolution: 1, autoDensity: false, antialias: false, background: 0x10131c, roundPixels: true });
+      const initPromise = app.init({
+        preference,
+        width: w,
+        height: h,
+        resolution: 1,
+        autoDensity: false,
+        antialias: false,
+        background: 0x10131c,
+        roundPixels: true,
+      });
+
+      // 2000ms timeout to avoid hanging if mobile GPU process stalls on WebGPU adapter
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        setTimeout(() => reject(new Error(`${preference} init timed out`)), 2000);
+      });
+
+      await Promise.race([initPromise, timeoutPromise]);
       return app;
     } catch (e) {
       lastError = e;
-      console.warn(`[minitcatch] ${preference} init failed, trying next backend`, e);
+      console.warn(`[minitcatch] ${preference} init failed or timed out, trying next backend:`, e);
+      try {
+        app.destroy(true, { children: true });
+      } catch {
+        /* ignore destruction error on failed init */
+      }
     }
   }
   throw new Error(`No usable renderer: ${String(lastError)}`);
