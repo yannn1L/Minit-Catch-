@@ -24,9 +24,12 @@ export class HudView {
   private readonly timer: PixelText;
   private readonly status: PixelText;
   private readonly hint: PixelText;
+  private readonly bannerGroup = new Container();
+  private readonly bannerBorder: Sprite;
+  private readonly bannerBg: Sprite;
+  private readonly bannerAccent: Sprite;
   private readonly banner: PixelText;
   private readonly center: PixelText;
-  private readonly bannerBg: Sprite;
   private readonly queue: string[] = [];
   private bannerLeft = 0;
   private order = '';
@@ -64,9 +67,15 @@ export class HudView {
     this.timer = label(font, '0:20', 0, 3, UI.text, 'center');
     this.status = label(font, '', 0, 3, UI.dim, 'right');
     this.hint = label(font, 'SPACE PAUSE  1-4 SPEED  C CAM  M MUTE  ESC EDIT', 0, 0, UI.dim, 'center');
-    this.bannerBg = rect(0x000000, 10, 9, 0, 0, 0.55);
-    this.bannerBg.visible = false;
+    
+    // Pixel-perfect toast banner pill: border, panel background, accent bar, and centered text
+    this.bannerBorder = rect(UI.border, 10, 11, 0, 0, 0.95);
+    this.bannerBg = rect(0x0e121e, 8, 9, 1, 1, 0.95);
+    this.bannerAccent = rect(UI.accent, 2, 9, 1, 1, 1);
     this.banner = label(font, '', 0, 0, UI.accent, 'center');
+    this.bannerGroup.addChild(this.bannerBorder, this.bannerBg, this.bannerAccent, this.banner);
+    this.bannerGroup.visible = false;
+
     this.center = label(font, '', 0, 0, UI.text, 'center');
 
     // Touch controls for mobile & desktop
@@ -77,7 +86,7 @@ export class HudView {
     this.exitBtn = new Button(font, 'ESC', 0, 0, 22, 11, () => this.actions?.onExit?.());
 
     this.controls.addChild(this.pauseBtn, this.speedBtn, this.camBtn, this.muteBtn, this.exitBtn);
-    this.root.addChild(this.timer, this.status, this.hint, this.bannerBg, this.banner, this.center, this.controls);
+    this.root.addChild(this.timer, this.status, this.hint, this.bannerGroup, this.center, this.controls);
   }
 
   private hideHints = false;
@@ -106,9 +115,8 @@ export class HudView {
     this.vw = vw;
     this.vh = vh;
     this.timer.position.set(Math.floor(vw / 2), 3);
-    this.status.position.set(vw - 3, 3);
-    this.banner.position.set(Math.floor(vw / 2), vh - 26);
-    this.center.position.set(Math.floor(vw / 2), Math.floor(vh / 2) - 20);
+    this.status.position.set(vw - 6, 3);
+    this.center.position.set(Math.floor(vw / 2), Math.floor(vh / 2) - 10);
 
     const isNarrow = vw < 260;
     this.controls.visible = !this.hideControls;
@@ -186,14 +194,38 @@ export class HudView {
     if (this.bannerLeft > 0) this.bannerLeft -= dt;
     if (this.bannerLeft <= 0) {
       const next = this.queue.shift();
-      if (next !== undefined) { this.banner.setText(next); this.bannerLeft = 1.7; } else this.banner.setText('');
+      if (next !== undefined) {
+        this.banner.setText(next);
+        this.bannerLeft = 2.0;
+      } else {
+        this.banner.setText('');
+      }
     }
     const has = this.banner.text !== '';
-    this.bannerBg.visible = has;
+    this.bannerGroup.visible = has;
     if (has) {
-      this.bannerBg.width = this.banner.textWidth + 8;
-      this.bannerBg.position.set(Math.floor(this.vw / 2 - this.banner.textWidth / 2) - 4, this.vh - 24);
-      this.banner.alpha = Math.min(1, this.bannerLeft * 4);
+      const boxW = Math.max(24, this.banner.textWidth + 14);
+      const boxH = 11;
+      const bx = Math.floor((this.vw - boxW) / 2);
+      // Position above hint (vh - 35) or above touch controls (vh - 26) with zero collision
+      const by = this.hint.visible ? this.vh - 35 : this.vh - 26;
+      this.bannerGroup.position.set(bx, by);
+      this.bannerBorder.width = boxW;
+      this.bannerBorder.height = boxH;
+      this.bannerBg.width = boxW - 2;
+      this.bannerBg.height = boxH - 2;
+      this.bannerAccent.height = boxH - 2;
+      // Precisely center the 5px font vertically within the 11px box (top padding = 3, font = 5, bottom padding = 3)
+      this.banner.position.set(Math.floor(boxW / 2) + 1, 3);
+      const alpha = Math.min(1, this.bannerLeft * 3.5);
+      this.bannerGroup.alpha = alpha;
+      if (this.hint.visible) {
+        this.hint.alpha = Math.max(0.12, 1 - alpha * 0.8);
+      }
+    } else {
+      if (this.hint.visible) {
+        this.hint.alpha = 1;
+      }
     }
   }
 }

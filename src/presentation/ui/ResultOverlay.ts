@@ -29,7 +29,19 @@ export class ResultOverlay {
     for (const c of this.root.removeChildren()) c.destroy({ children: true });
     const cx = Math.floor(vw / 2);
     this.root.addChild(rect(0x000000, vw, vh, 0, 0, 0.62));
-    let y = Math.max(8, Math.floor(vh / 2) - 62);
+    const order = [...r.scores].sort((a, b) => b.points - a.points || a.slot - b.slot);
+    const h = r.highlights;
+    const lines: string[] = [];
+    if (h.topCatcher >= 0) lines.push(`TOP CATCHER: ${names[h.topCatcher]!.toUpperCase()} (${r.catches[h.topCatcher]})`);
+    if (h.mostStuns >= 0) lines.push(`MOST STUNS: ${names[h.mostStuns]!.toUpperCase()} (${r.stuns[h.mostStuns]})`);
+    if (h.biggestSwing !== null) lines.push(`BIGGEST SWING: ${names[h.biggestSwing.slot]!.toUpperCase()} +${h.biggestSwing.points}`);
+
+    // If more than 6 participants, display scores in 2 compact columns to prevent overflowing the screen
+    const twoCol = order.length > 6;
+    const scoreRows = twoCol ? Math.ceil(order.length / 2) : order.length;
+    const totalH = 16 + (r.overtime ? 8 : 0) + 4 + scoreRows * 7.5 + 4 + lines.length * 7 + 6 + 14 + (replayNote !== '' ? 14 : 0);
+    let y = Math.max(4, Math.floor((vh - totalH) / 2));
+
     const title = r.draw ? 'DRAW!' : `${names[r.winnerSlot]!.toUpperCase()} WINS!`;
     const t = label(this.font, title, cx, y, SLOT_COLORS[r.winnerSlot % SLOT_COLORS.length]!, 'center');
     t.scale.set(2);
@@ -37,21 +49,32 @@ export class ResultOverlay {
     y += 16;
     if (r.overtime) { this.root.addChild(label(this.font, 'DECIDED IN OVERTIME', cx, y, UI.accent, 'center')); y += 8; }
     y += 4;
-    const order = [...r.scores].sort((a, b) => b.points - a.points || a.slot - b.slot);
-    for (const s of order) {
-      this.root.addChild(rect(SLOT_COLORS[s.slot % SLOT_COLORS.length]!, 4, 5, cx - 40, y));
-      this.root.addChild(label(this.font, names[s.slot]!.toUpperCase().slice(0, 8), cx - 33, y, UI.text));
-      this.root.addChild(label(this.font, String(s.points), cx + 40, y, UI.text, 'right'));
-      y += 8;
+
+    if (twoCol) {
+      const half = Math.ceil(order.length / 2);
+      const startY = y;
+      order.forEach((s, i) => {
+        const col = i < half ? 0 : 1;
+        const row = i < half ? i : i - half;
+        const colX = col === 0 ? cx - 74 : cx + 8;
+        const rowY = startY + row * 7;
+        this.root.addChild(rect(SLOT_COLORS[s.slot % SLOT_COLORS.length]!, 4, 5, colX, rowY));
+        this.root.addChild(label(this.font, names[s.slot]!.toUpperCase().slice(0, 7), colX + 6, rowY, UI.text));
+        this.root.addChild(label(this.font, String(s.points), colX + 66, rowY, UI.text, 'right'));
+      });
+      y += half * 7;
+    } else {
+      for (const s of order) {
+        this.root.addChild(rect(SLOT_COLORS[s.slot % SLOT_COLORS.length]!, 4, 5, cx - 40, y));
+        this.root.addChild(label(this.font, names[s.slot]!.toUpperCase().slice(0, 8), cx - 33, y, UI.text));
+        this.root.addChild(label(this.font, String(s.points), cx + 40, y, UI.text, 'right'));
+        y += 7.5;
+      }
     }
-    y += 6;
-    const h = r.highlights;
-    const lines: string[] = [];
-    if (h.topCatcher >= 0) lines.push(`TOP CATCHER: ${names[h.topCatcher]!.toUpperCase()} (${r.catches[h.topCatcher]})`);
-    if (h.mostStuns >= 0) lines.push(`MOST STUNS: ${names[h.mostStuns]!.toUpperCase()} (${r.stuns[h.mostStuns]})`);
-    if (h.biggestSwing !== null) lines.push(`BIGGEST SWING: ${names[h.biggestSwing.slot]!.toUpperCase()} +${h.biggestSwing.points}`);
+    y += 5;
+
     for (const l of lines) { this.root.addChild(label(this.font, l, cx, y, UI.dim, 'center')); y += 7; }
-    y += 6;
+    y += 5;
 
     if (onReplay && onEditor) {
       const replayBtn = new Button(this.font, 'REPLAY [R]', cx - 58, y, 54, 12, onReplay);

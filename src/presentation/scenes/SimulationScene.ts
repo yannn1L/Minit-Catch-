@@ -222,7 +222,7 @@ export class SimulationScene implements Scene {
     if (!this.hud) return;
     this.hud.setControlsState(this.paused, SPEEDS[this.speedIdx]!, this.directorOn, this.ctx.audio.isMuted);
     this.hud.setStatus(
-      `${this.paused ? 'PAUSED ' : ''}${SPEEDS[this.speedIdx]}X ${this.directorOn ? 'DIRECTOR' : 'FREE'}${this.isReplay ? ' REPLAY' : ''}`,
+      `${this.paused ? 'PAUSED ' : ''}${SPEEDS[this.speedIdx]}X ${this.directorOn ? 'DIR' : 'FREE'}${this.isReplay ? ' REP' : ''}`,
       this.paused ? UI.accent : UI.dim,
     );
   }
@@ -342,7 +342,7 @@ export class SimulationScene implements Scene {
       if (this.resultsT > 1 && !this.overlay.root.visible) this.showOverlay();
     }
 
-    this.hud.setStatus(`${this.paused ? 'PAUSED ' : ''}${SPEEDS[this.speedIdx]}X ${this.directorOn ? 'DIRECTOR' : 'FREE'}${this.isReplay ? ' REPLAY' : ''}`, this.paused ? UI.accent : UI.dim);
+    this.hud.setStatus(`${this.paused ? 'PAUSED ' : ''}${SPEEDS[this.speedIdx]}X ${this.directorOn ? 'DIR' : 'FREE'}${this.isReplay ? ' REP' : ''}`, this.paused ? UI.accent : UI.dim);
     this.updateCamera(view, dt);
     this.renderer.vfx.update(this.paused ? 0 : dt * SPEEDS[this.speedIdx]!);
     this.renderer.updateFloaters(this.paused ? 0 : dt * SPEEDS[this.speedIdx]!);

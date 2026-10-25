@@ -172,6 +172,7 @@ export class EditorScene implements Scene {
       vy = vy - tipH - 6;
     }
     vx = Math.max(4, Math.min(v.w - tipW - 4, vx - Math.floor(tipW / 2)));
+    vy = Math.max(4, Math.min(v.h - tipH - 4, vy));
 
     tt.position.set(vx, vy);
     tt.addChild(rect(UI.border, tipW, tipH, 0, 0));
@@ -236,6 +237,37 @@ export class EditorScene implements Scene {
     }
     this.content.addChild(new Button(font, '-', bx, ly, 11, 11, () => this.setParticipants(Math.max(MIN_PARTICIPANTS, cfg.participants - 1))));
     this.content.addChild(new Button(font, '+', bx + 13, ly, 11, 11, () => this.setParticipants(Math.min(MAX_PARTICIPANTS, cfg.participants + 1))));
+    ly += 15;
+
+    // ---- match duration / timer
+    this.content.addChild(label(font, `MATCH TIMER: ${cfg.durationSec}S`, lx, ly, UI.dim));
+    ly += 8;
+    const DURATION_PRESETS = [10, 20, 30, 60] as const;
+    let tx = lx;
+    for (const d of DURATION_PRESETS) {
+      this.content.addChild(
+        new Button(font, `${d}S`, tx, ly, 18, 11, () => {
+          cfg.durationSec = d;
+          audio.play('ui');
+          this.build();
+        }).setSelected(cfg.durationSec === d),
+      );
+      tx += 20;
+    }
+    this.content.addChild(
+      new Button(font, '-5S', tx, ly, 16, 11, () => {
+        cfg.durationSec = Math.max(5, cfg.durationSec - 5);
+        audio.play('ui');
+        this.build();
+      }),
+    );
+    this.content.addChild(
+      new Button(font, '+5S', tx + 18, ly, 16, 11, () => {
+        cfg.durationSec = Math.min(180, cfg.durationSec + 5);
+        audio.play('ui');
+        this.build();
+      }),
+    );
     ly += 15;
 
     // ---- roster grid with hover tooltip
@@ -378,86 +410,118 @@ export class EditorScene implements Scene {
     this.overlayLayer.addChild(backdrop);
 
     const mw = Math.min(vw - 16, 184);
-    const mh = 176;
-    const mx = Math.floor((vw - mw) / 2);
-    const my = Math.floor((vh - mh) / 2);
-
     const modal = new Container();
-    modal.position.set(mx, my);
-    modal.addChild(rect(UI.border, mw, mh, 0, 0));
-    modal.addChild(rect(UI.panel, mw - 2, mh - 2, 1, 1));
-    modal.addChild(rect(UI.accent, mw - 2, 2, 1, 1));
-
-    modal.addChild(label(font, 'MATCH AND ARENA SETTINGS', 8, 6, UI.accent));
-    const closeBtn = new Button(font, 'X', mw - 14, 4, 10, 10, () => {
-      this.showSettings = false;
-      this.build();
-    });
-    modal.addChild(closeBtn);
 
     let sy = 20;
 
     // 1. Audio toggle
-    const audioBtn = new Button(font, audio.isMuted ? 'SOUND: MUTED' : 'SOUND: ENABLED', 8, sy, mw - 16, 12, () => {
+    const audioBtn = new Button(font, audio.isMuted ? 'SOUND: MUTED' : 'SOUND: ENABLED', 8, sy, mw - 16, 11, () => {
       audio.toggleMute();
       this.build();
     }).setSelected(!audio.isMuted);
     modal.addChild(audioBtn);
-    sy += 16;
+    sy += 15;
 
-    // 2. Hide Hint in Arena Scene
-    const hideHintBtn = new Button(font, cfg.observer.hideHints ? 'HINT BAR: HIDDEN' : 'HINT BAR: VISIBLE', 8, sy, mw - 16, 12, () => {
+    // 2. Match Timer
+    modal.addChild(label(font, `MATCH TIMER: ${cfg.durationSec}S`, 8, sy, UI.dim));
+    sy += 8;
+    const presets = [10, 20, 30, 60] as const;
+    let mxTimer = 8;
+    for (const d of presets) {
+      modal.addChild(
+        new Button(font, `${d}S`, mxTimer, sy, 18, 10, () => {
+          cfg.durationSec = d;
+          this.build();
+        }).setSelected(cfg.durationSec === d),
+      );
+      mxTimer += 20;
+    }
+    modal.addChild(
+      new Button(font, '-5S', mxTimer, sy, 16, 10, () => {
+        cfg.durationSec = Math.max(5, cfg.durationSec - 5);
+        this.build();
+      }),
+    );
+    modal.addChild(
+      new Button(font, '+5S', mxTimer + 18, sy, 16, 10, () => {
+        cfg.durationSec = Math.min(180, cfg.durationSec + 5);
+        this.build();
+      }),
+    );
+    sy += 14;
+
+    // 3. Hide Hint in Arena Scene
+    const hideHintBtn = new Button(font, cfg.observer.hideHints ? 'HINT BAR: HIDDEN' : 'HINT BAR: VISIBLE', 8, sy, mw - 16, 11, () => {
       cfg.observer.hideHints = !cfg.observer.hideHints;
       this.build();
     }).setSelected(!!cfg.observer.hideHints);
     modal.addChild(hideHintBtn);
-    sy += 16;
+    sy += 14;
 
-    // 3. Hide Touch Controls in Arena Scene
-    const hideCtlBtn = new Button(font, cfg.observer.hideControls ? 'BOTTOM BUTTONS: HIDDEN' : 'BOTTOM BUTTONS: VISIBLE', 8, sy, mw - 16, 12, () => {
+    // 4. Hide Touch Controls in Arena Scene
+    const hideCtlBtn = new Button(font, cfg.observer.hideControls ? 'BOTTOM BUTTONS: HIDDEN' : 'BOTTOM BUTTONS: VISIBLE', 8, sy, mw - 16, 11, () => {
       cfg.observer.hideControls = !cfg.observer.hideControls;
       this.build();
     }).setSelected(!!cfg.observer.hideControls);
     modal.addChild(hideCtlBtn);
-    sy += 16;
+    sy += 14;
 
-    // 4. Random Arena
-    const rndArenaBtn = new Button(font, cfg.observer.randomArena ? 'RANDOM ARENA: ON' : 'RANDOM ARENA: OFF', 8, sy, mw - 16, 12, () => {
+    // 5. Random Arena
+    const rndArenaBtn = new Button(font, cfg.observer.randomArena ? 'RANDOM ARENA: ON' : 'RANDOM ARENA: OFF', 8, sy, mw - 16, 11, () => {
       cfg.observer.randomArena = !cfg.observer.randomArena;
       this.build();
     }).setSelected(!!cfg.observer.randomArena);
     modal.addChild(rndArenaBtn);
-    sy += 16;
+    sy += 14;
 
-    // 5. Random Seed
-    const rndSeedBtn = new Button(font, cfg.observer.randomSeed ? 'RANDOM SEED: ON' : 'RANDOM SEED: OFF', 8, sy, mw - 16, 12, () => {
+    // 6. Random Seed
+    const rndSeedBtn = new Button(font, cfg.observer.randomSeed ? 'RANDOM SEED: ON' : 'RANDOM SEED: OFF', 8, sy, mw - 16, 11, () => {
       cfg.observer.randomSeed = !cfg.observer.randomSeed;
       this.build();
     }).setSelected(!!cfg.observer.randomSeed);
     modal.addChild(rndSeedBtn);
-    sy += 16;
+    sy += 14;
 
-    // 6. Camera Zoom Option
-    modal.addChild(label(font, 'CAMERA ZOOM', 8, sy + 1, UI.dim));
-    let zx = 8 + 48;
+    // 7. Camera Zoom Option
+    modal.addChild(label(font, 'CAM ZOOM', 8, sy + 1, UI.dim));
+    let zx = 8 + 42;
     for (let i = 0; i < ZOOM_LEVELS.length; i++) {
       const zVal = ZOOM_LEVELS[i]!;
-      const zw = i === 0 ? 24 : 16;
-      const zBtn = new Button(font, ZOOM_LABELS[i]!, zx, sy, zw, 11, () => {
+      const zw = i === 0 ? 22 : 15;
+      const zBtn = new Button(font, ZOOM_LABELS[i]!, zx, sy, zw, 10, () => {
         cfg.observer.zoom = zVal;
         this.build();
       }).setSelected((cfg.observer.zoom ?? 0) === zVal);
       modal.addChild(zBtn);
       zx += zw + 2;
     }
-    sy += 18;
+    sy += 15;
 
-    // 7. Done Button
-    const doneBtn = new Button(font, 'DONE', Math.floor((mw - 46) / 2), sy, 46, 13, () => {
+    // 8. Done Button
+    const doneBtn = new Button(font, 'DONE', Math.floor((mw - 46) / 2), sy, 46, 12, () => {
       this.showSettings = false;
       this.build();
     }).setSelected(true);
     modal.addChild(doneBtn);
+    sy += 16;
+
+    const mh = Math.min(vh - 8, sy + 4);
+    const mx = Math.floor((vw - mw) / 2);
+    const my = Math.max(4, Math.floor((vh - mh) / 2));
+    modal.position.set(mx, my);
+
+    // Background boxes behind controls
+    const bgContainer = new Container();
+    bgContainer.addChild(rect(UI.border, mw, mh, 0, 0));
+    bgContainer.addChild(rect(UI.panel, mw - 2, mh - 2, 1, 1));
+    bgContainer.addChild(rect(UI.accent, mw - 2, 2, 1, 1));
+    bgContainer.addChild(label(font, 'SETTINGS', 8, 5, UI.accent));
+    const closeBtn = new Button(font, 'X', mw - 14, 4, 10, 10, () => {
+      this.showSettings = false;
+      this.build();
+    });
+    bgContainer.addChild(closeBtn);
+    modal.addChildAt(bgContainer, 0);
 
     this.overlayLayer.addChild(modal);
   }
