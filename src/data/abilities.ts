@@ -28,13 +28,13 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
   { id: id('magnetizer'), role: 'Controller', maxStunSec: 0, countersDisable: false,
     make: () => createMagnetizer(id('magnetizer'), { cooldown: 9, radius: 4, pullSec: 0.9, minChickens: 3 }) },
   { id: id('guardian'), role: 'Support', maxStunSec: 0, countersDisable: true,
-    make: () => createGuardian(id('guardian'), { cooldown: 9, shieldSec: 2, threatRadius: 5 }) },
+    make: () => createGuardian(id('guardian'), { cooldown: 9, shieldSec: 7, threatRadius: 8 }) },
   { id: id('trickster'), role: 'Trickster', maxStunSec: 0, countersDisable: false,
-    make: () => createTrickster(id('trickster'), { cooldown: 8, lureSec: 4, distance: 3, baitRange: 9 }) },
+    make: () => createTrickster(id('trickster'), { cooldown: 8, lureSec: 6, distance: 3, baitRange: 9 }) },
   { id: id('saboteur'), role: 'Disruptor', maxStunSec: 0, countersDisable: false,
     make: () => createSaboteur(id('saboteur'), { cooldown: 9, lockSec: 2, threatRadius: 9 }) },
   { id: id('heavy'), role: 'Bruiser', maxStunSec: 0, countersDisable: false,
-    make: () => createHeavy(id('heavy'), { cooldown: 7, radius: 2.4, knock: 14 }) },
+    make: () => createHeavy(id('heavy'), { cooldown: 4, radius: 2.4, knock: 14 }) },
 ];
 
 export const ABILITY_DEF_BY_ID: ReadonlyMap<AbilityId, AbilityDef> = new Map(
