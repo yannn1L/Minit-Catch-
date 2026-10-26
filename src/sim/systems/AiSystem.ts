@@ -7,6 +7,6 @@ export function aiSystem(sim: Simulation): void {
   for (let i = 0; i < rs.length; i++) {
     const r = rs[i]!;
     if ((sim.tick + r.id) % AI_PERIOD_TICKS !== 0) continue;
-    sim.ai.think(r, sim, TICK * AI_PERIOD_TICKS);
+    sim.aiOf(r).think(r, sim, TICK * AI_PERIOD_TICKS);
   }
 }

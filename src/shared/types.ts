@@ -37,6 +37,8 @@ export interface RoasterDef {
   readonly stats: RoasterStats;
   readonly sprite: SpriteId;
   readonly colors: { readonly primary: number; readonly accent: number };
+  readonly role?: string;
+  readonly description?: string;
 }
 
 export interface ChickenSpawnConfig {

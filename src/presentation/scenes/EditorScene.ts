@@ -1,7 +1,8 @@
 import { Container, Sprite, type FederatedPointerEvent } from 'pixi.js';
 import type { GameContext } from '../../app/GameContext.ts';
-import { arenaId, type RoasterId } from '../../core/ids.ts';
+import { arenaId, type AbilityId, type RoasterId } from '../../core/ids.ts';
 import { mulberry32 } from '../../core/rng.ts';
+import { getAbilityDef } from '../../data/abilities.ts';
 import { SLOT_COLORS, UI } from '../../data/palette.ts';
 import { defaultChickenSpawn, MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '../../domain/rules/constants.ts';
 import { validateMatchConfig } from '../../domain/rules/validation.ts';
@@ -16,17 +17,6 @@ const PRESETS = [2, 4, 7, 9] as const;
 const SPEEDS = [0.5, 1, 2, 4] as const;
 const ZOOM_LEVELS = [0, 1, 2, 3, 4] as const;
 const ZOOM_LABELS = ['AUTO', '1X', '2X', '3X', '4X'] as const;
-
-const ROASTER_INFO: Record<string, { role: string; desc: string }> = {
-  boomer: { role: 'BOMBER', desc: 'PLANTS TIMED BOMBS THAT STUN' },
-  netta: { role: 'NETTER', desc: 'CASTS NET TO IMMOBILIZE FOES' },
-  dash: { role: 'SPRINTER', desc: 'DASHES FORWARD WITH SHIELD' },
-  magna: { role: 'MAGNETIZER', desc: 'PULLS NEARBY FREE CHICKENS' },
-  guard: { role: 'GUARDIAN', desc: 'SHIELDS SELF AGAINST ATTACKS' },
-  trix: { role: 'TRICKSTER', desc: 'DROPS A DECOY TO CONFUSE FOES' },
-  sabo: { role: 'SABOTEUR', desc: 'TEMPORARILY LOCKS ENEMY COOPS' },
-  tank: { role: 'HEAVY', desc: 'SLAM KNOCKBACK ON NEARBY FOES' },
-};
 
 function randomSeed32(): number {
   const a = new Uint32Array(1);
@@ -179,11 +169,13 @@ export class EditorScene implements Scene {
     tt.addChild(rect(UI.panel, tipW - 2, tipH - 2, 1, 1));
     tt.addChild(rect(def.colors.primary, tipW - 2, 2, 1, 1));
 
-    const info = ROASTER_INFO[def.id] ?? { role: def.ability.toUpperCase(), desc: 'SPECIAL ROASTER ABILITY' };
-    tt.addChild(label(font, `${def.name.toUpperCase()} (${info.role})`, 5, 5, UI.accent));
+    const ab = getAbilityDef(def.ability);
+    const role = (def.role ?? ab?.role ?? def.ability).toUpperCase();
+    const desc = (def.description ?? 'SPECIAL ROASTER ABILITY').toUpperCase();
+    tt.addChild(label(font, `${def.name.toUpperCase()} (${role})`, 5, 5, UI.accent));
     const st = def.stats;
     tt.addChild(label(font, `SPD: ${st.moveSpeed}  MASS: ${st.mass}  GRAB: ${st.pickupRadius}M`, 5, 17, UI.text));
-    tt.addChild(label(font, info.desc.slice(0, 30), 5, 29, UI.dim));
+    tt.addChild(label(font, desc.slice(0, 30), 5, 29, UI.dim));
 
     this.tooltip = tt;
     this.overlayLayer.addChild(tt);
@@ -527,7 +519,8 @@ export class EditorScene implements Scene {
   }
 
   private abilityLabel(id: string): string {
-    return id.slice(0, 6).toUpperCase();
+    const ab = getAbilityDef(id as AbilityId);
+    return ab ? ab.label : id.slice(0, 6).toUpperCase();
   }
 
   onKey(e: KeyboardEvent, down: boolean): void {

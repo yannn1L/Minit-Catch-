@@ -12,7 +12,8 @@ import {
   createIntent, type Bomb, type Chicken, type Coop, type Lure, type Roaster,
 } from '../domain/entities/entities.ts';
 import type { AbilityStrategy } from '../domain/strategies/ability.ts';
-import type { AiStrategy } from '../domain/strategies/ai.ts';
+import { getAbilityDef } from '../data/abilities.ts';
+import { getStrategyForRole, type AiStrategy } from '../domain/strategies/ai.ts';
 import type { ArenaLayout, ArenaLayoutResult } from '../domain/strategies/arena.ts';
 import type { SimContext } from '../domain/strategies/context.ts';
 import type { TiebreakStrategy } from '../domain/strategies/tiebreak.ts';
@@ -36,6 +37,7 @@ export interface SimRegistries {
   readonly roasters: Registry<RoasterId, RoasterDef>;
   readonly abilities: Registry<AbilityId, AbilityStrategy>;
   readonly arenas: Registry<ArenaId, ArenaLayout>;
+  readonly ai?: Registry<string, AiStrategy>;
 }
 
 /** Read-only facade handed to presentation (no copying, no mutation through the type). */
@@ -68,6 +70,7 @@ export class Simulation implements SimContext, SimView {
   readonly rngAbility: Rng;
   readonly hash: SpatialHash;
   readonly abilities: AbilityStrategy[] = [];
+  readonly aiStrategies: AiStrategy[] = [];
   readonly ai: AiStrategy = utilityAi;
   readonly tiebreak: TiebreakStrategy = defaultTiebreak;
 
@@ -102,9 +105,12 @@ export class Simulation implements SimContext, SimView {
     for (let i = 0; i < n; i++) {
       const def = regs.roasters.get(config.roasterIds[i]!);
       const ability = regs.abilities.get(def.ability);
+      const role = getAbilityDef(def.ability)?.role;
+      const aiStrat = regs.ai?.tryGet(role ?? 'Default') ?? getStrategyForRole(role);
       const sp = this.arena.roasterSpawns[i]!;
       const slot = this.arena.coops[i]!;
       this.abilities.push(ability);
+      this.aiStrategies.push(aiStrat);
       this.roasters.push({
         id: i, slot: i, roasterId: def.id, abilityId: def.ability, stats: def.stats, radius: ROASTER_RADIUS,
         x: sp.x, y: sp.y, px: sp.x, py: sp.y, vx: 0, vy: 0, kx: 0, ky: 0,
@@ -172,6 +178,10 @@ export class Simulation implements SimContext, SimView {
   // ------------------------------------------------------------ SimContext
   abilityOf(r: Roaster): AbilityStrategy {
     return this.abilities[r.slot]!;
+  }
+
+  aiOf(r: Roaster): AiStrategy {
+    return this.aiStrategies[r.slot] ?? this.ai;
   }
 
   isShielded(r: Roaster): boolean {

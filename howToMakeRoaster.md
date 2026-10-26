@@ -11,16 +11,19 @@ Game ini dirancang dengan arsitektur **Data-Driven & Modular**. Artinya, Anda da
 Sebuah Roaster di Minit Catch terdiri dari 5 komponen inti:
 
 1. **Identitas (`id` & `name`)**: ID unik berbasis type-safe (`RoasterId`) dan nama tampilan (maksimal 6 karakter untuk keterbacaan HUD optimal).
-2. **Statistik Dasar (`stats`)**:
+2. **Peran & Deskripsi (`role` & `description`)**:
+   - `role`: Peran atau arketipe roaster (misal: `BOMBER`, `SPEEDSTER`, `GUARDIAN`) yang ditampilkan di info kartu editor dan menentukan strategi AI otomatis.
+   - `description`: Deskripsi singkat kemampuan untuk tooltip HUD di editor scene (terpusat langsung di definisi roaster, tidak perlu mengedit file scene UI terpisah).
+3. **Statistik Dasar (`stats`)**:
    - `moveSpeed`: Kecepatan bergerak normal (dalam meter/detik, standar: 4.4 – 4.7 m/s).
    - `pickupRadius`: Jangkauan tangkapan ayam liar (dalam meter, standar: 1.0 – 1.2 m).
    - `carrySlots`: Kapasitas membawa ayam (selalu bernilai `1` sesuai aturan GDD).
    - `mass`: Massa tubuh untuk kalkulasi dorongan dan tabrakan (standar: 0.8 – 2.0).
-3. **Kemampuan Khusus (`ability`)**: Referensi ke `AbilityId` yang menentukan skill aktif AI roaster.
-4. **Visual Pixel Art (`sprite` & `colors`)**:
+4. **Kemampuan Khusus (`ability`)**: Referensi ke `AbilityId` yang menentukan skill aktif AI roaster.
+5. **Visual Pixel Art (`sprite` & `colors`)**:
    - Sprite 12x13 piksel dengan frame animasi `idle`, `run`, `carry`, dan `stun`.
    - Warna `primary` (tubuh) dan `accent` (jengger/topi/peralatan).
-5. **Slot Warna Arena (`colors`)**: Digunakan untuk rendering warna kandang, bayangan nomor, dan sorotan antarmuka.
+6. **Slot Warna Arena (`colors`)**: Digunakan untuk rendering warna kandang, bayangan nomor, dan sorotan antarmuka.
 
 ---
 
@@ -30,7 +33,7 @@ Sebuah Roaster di Minit Catch terdiri dari 5 komponen inti:
 |---|---|
 | `src/core/ids.ts` | Mendefinisikan helper dan tipe `roasterId(...)` & `spriteId(...)`. |
 | `src/shared/types.ts` | Definisi TypeScript interface `RoasterDef` dan `RoasterStats`. |
-| `src/data/roasters.ts` | Daftar katalog utama (`ROASTER_DEFS`) di mana roaster baru didaftarkan. |
+| `src/data/roasters.ts` | Daftar katalog utama (`ROASTER_DEFS`) di mana roaster baru didaftarkan (termasuk role & deskripsi UI). |
 | `src/data/sprites/roasters.ts` | Generator pixel art frame roaster (matriks karakter dan headgear unik). |
 | `src/data/abilities.ts` | Daftar kemampuan yang tersedia dan dapat dipasangkan ke roaster. |
 | `src/domain/strategies/abilities.ts` | Implementasi logika jika ingin membuat tipe ability baru. |
@@ -64,6 +67,8 @@ export const ROASTER_DEFS: readonly RoasterDef[] = [
   {
     id: roasterId('blaze'),
     name: 'Blaze',
+    role: 'Speedster',
+    description: 'BURSTS FORWARD WITH FLAME DASH',
     ability: abilityId('sprinter'), // Menggunakan ability sprinter atau ability kustom
     stats: stats(4.65, 1.05, 0.9), // Kecepatan 4.65 m/s, jangkauan 1.05m, massa 0.9kg
     sprite: spriteId('roaster_blaze'),
@@ -133,15 +138,16 @@ Jika ingin membuat **Ability Baru**:
      return {
        id,
        cooldown: cfg.cooldown,
-       evaluate(roaster, ctx) {
-         // Logika kecerdasan buatan (Utility AI) untuk memutuskan kapan skill dipakai
-         if (roaster.carried >= 0) return 0.8; // Prioritaskan saat membawa ayam ke kandang
-         return 0.3;
+       canUse(roaster, ctx) {
+         // Siap (cooldown selesai & tidak stun) dan situasi menguntungkan
+         if (roaster.cooldownLeft > 0 || ctx.time < roaster.stunUntil) return false;
+         return roaster.carried >= 0 || roaster.intent.hasTarget;
        },
-       execute(roaster, ctx) {
+       use(roaster, ctx) {
          // Efek skill: akselerasi, shield, atau efek area
          ctx.grantShield(roaster, 1.5);
          ctx.emit({ t: 'ability', tick: ctx.tick, roaster: roaster.id, ability: id, hits: 0 });
+         return 0;
        },
      };
    }

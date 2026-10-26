@@ -38,6 +38,15 @@ export const ABILITY_DEFS: readonly AbilityDef[] = [
     make: () => createHeavy(id('heavy'), { cooldown: 7, radius: 2.4, knock: 14 }) },
 ];
 
+export const ABILITY_DEF_BY_ID: ReadonlyMap<AbilityId, AbilityDef> = new Map(
+  ABILITY_DEFS.map((d) => [d.id, d]),
+);
+
+export function getAbilityDef(id: AbilityId): AbilityDef | undefined {
+  return ABILITY_DEF_BY_ID.get(id);
+}
+
 export function registerAbilities(reg: Registry<AbilityId, AbilityStrategy>): void {
   for (const d of ABILITY_DEFS) reg.register(d.id, d.make());
 }
+
