@@ -338,6 +338,25 @@ export class Simulation implements SimContext, SimView {
     this.lastScoreSum = sum;
   }
 
+  get isTagTeam(): boolean {
+    return this.config.mode === 'tag_team';
+  }
+
+  teamOf(slot: number): number {
+    return this.config.mode === 'tag_team' ? (slot < Math.floor(this.config.participants / 2) ? 0 : 1) : slot;
+  }
+
+  teamScores(): [number, number] {
+    let red = 0;
+    let blue = 0;
+    const half = Math.floor(this.coops.length / 2);
+    for (let i = 0; i < this.coops.length; i++) {
+      if (i < half) red += this.coops[i]!.score;
+      else blue += this.coops[i]!.score;
+    }
+    return [red, blue];
+  }
+
   result(): MatchResult {
     assert(this.phase === 'ended', 'result() requires an ended match');
     const scores = this.scoreboard();
@@ -349,10 +368,15 @@ export class Simulation implements SimContext, SimView {
       for (let i = 0; i < arr.length; i++) if (arr[i]! > bv) { bv = arr[i]!; best = i; }
       return best;
     };
+    const ts = this.teamScores();
+    const winningTeam: 0 | 1 | -1 = !this.isTagTeam ? -1 : (ts[0] > ts[1] ? 0 : ts[1] > ts[0] ? 1 : -1);
     return {
       winnerSlot: this.winnerSlot, draw: this.draw, overtime: this.overtime, ticks: this.tick, scores, catches, stuns,
       highlights: { topCatcher: top(catches), mostStuns: top(stuns), biggestSwing: biggestSwing(this.events.history, this.coops.length) },
       eventHash: hashEvents(this.events.history),
+      mode: this.config.mode ?? 'ffa',
+      winningTeam,
+      teamScores: ts,
     };
   }
 }

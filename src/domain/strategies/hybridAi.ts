@@ -13,9 +13,12 @@ const STICKY = 0.6; // squared-distance multiplier for current target (hysteresi
 function inEnemyArea(ctx: SimContext, self: Roaster, x: number, y: number, toleranceMult = 1.0): boolean {
   const r = ENEMY_AREA_RADIUS * toleranceMult;
   const r2 = r * r;
+  const isTag = !!ctx.isTagTeam;
+  const myTeam = isTag ? (self.slot < Math.floor(ctx.coops.length / 2) ? 0 : 1) : self.slot;
   for (let i = 0; i < ctx.coops.length; i++) {
     const c = ctx.coops[i]!;
-    if (c.slot !== self.slot && dist2(x, y, c.x, c.y) < r2) return true;
+    const cTeam = isTag ? (c.slot < Math.floor(ctx.coops.length / 2) ? 0 : 1) : c.slot;
+    if (cTeam !== myTeam && dist2(x, y, c.x, c.y) < r2) return true;
   }
   return false;
 }
@@ -100,9 +103,23 @@ export function createHybridAi(profile: AiProfile = ROLE_ARCHETYPES.Default!): A
         return it;
       }
 
-      // Carrying chicken: navigate to own coop or loiter if coop is locked
+      // Carrying chicken: navigate to own coop (or closest friendly coop in Tag Team)
       if (self.carried >= 0) {
-        const coop = ctx.coops[self.slot]!;
+        let coop = ctx.coops[self.slot]!;
+        if (ctx.isTagTeam) {
+          const myTeam = self.slot < Math.floor(ctx.coops.length / 2) ? 0 : 1;
+          let bestD2 = Infinity;
+          for (let i = 0; i < ctx.coops.length; i++) {
+            const c = ctx.coops[i]!;
+            const cTeam = c.slot < Math.floor(ctx.coops.length / 2) ? 0 : 1;
+            if (cTeam !== myTeam) continue;
+            const d2 = dist2(self.x, self.y, c.x, c.y);
+            if (ctx.time >= c.lockUntil && d2 < bestD2) {
+              bestD2 = d2;
+              coop = c;
+            }
+          }
+        }
         it.targetKind = TARGET_NONE;
         it.targetId = -1;
         it.hasTarget = true;

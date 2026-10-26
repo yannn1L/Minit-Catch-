@@ -57,6 +57,8 @@ export interface ObserverConfig {
   randomSeed?: boolean;
 }
 
+export type MatchMode = 'ffa' | 'tag_team';
+
 export interface MatchConfig {
   seed: number; // 32-bit, non-zero
   participants: number;
@@ -65,6 +67,8 @@ export interface MatchConfig {
   durationSec: number;
   chickenSpawn: ChickenSpawnConfig;
   observer: ObserverConfig;
+  mode?: MatchMode;
+  teamSize?: number; // 2..10 for tag_team
 }
 
 // ---------------------------------------------------------------- scoring
@@ -89,6 +93,9 @@ export interface MatchResult {
     readonly biggestSwing: { readonly slot: number; readonly points: number } | null;
   };
   readonly eventHash: string;
+  readonly mode?: MatchMode;
+  readonly winningTeam?: 0 | 1 | -1;
+  readonly teamScores?: readonly [number, number];
 }
 
 // ---------------------------------------------------------------- events (ground truth for replay/tests)

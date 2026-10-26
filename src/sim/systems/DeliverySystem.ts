@@ -10,9 +10,26 @@ export function deliverySystem(sim: Simulation): void {
   for (let i = 0; i < rs.length; i++) {
     const r = rs[i]!;
     if (r.carried < 0 || t < r.stunUntil) continue;
-    const coop = sim.coops[r.slot]!;
-    if (t < coop.lockUntil) continue;
-    if (dist2(r.x, r.y, coop.x, coop.y) > coop.radius * coop.radius) continue;
+    let coop = sim.coops[r.slot]!;
+    if (sim.isTagTeam) {
+      const myTeam = sim.teamOf(r.slot);
+      let found = false;
+      for (let j = 0; j < sim.coops.length; j++) {
+        const cCandidate = sim.coops[j]!;
+        if (sim.teamOf(cCandidate.slot) !== myTeam) continue;
+        if (t < cCandidate.lockUntil) continue;
+        if (dist2(r.x, r.y, cCandidate.x, cCandidate.y) <= cCandidate.radius * cCandidate.radius) {
+          coop = cCandidate;
+          found = true;
+          break;
+        }
+      }
+      if (!found) continue;
+    } else {
+      if (t < coop.lockUntil) continue;
+      if (dist2(r.x, r.y, coop.x, coop.y) > coop.radius * coop.radius) continue;
+    }
+
     const c = sim.chickens[r.carried]!;
     assert(c.state === 'carried' && c.carrier === r.id, `delivery invariant: chicken ${c.id} / roaster ${r.id}`);
     c.state = 'stored';

@@ -1,6 +1,6 @@
 import { Container, Particle, ParticleContainer, Sprite } from 'pixi.js';
 import { spriteId } from '../../core/ids.ts';
-import { SLOT_COLORS } from '../../data/palette.ts';
+import { SLOT_COLORS, TEAM_COLORS } from '../../data/palette.ts';
 import type { RoasterDef } from '../../shared/types.ts';
 import type { SimView } from '../../sim/Simulation.ts';
 import type { SpriteFactory } from '../sprites/SpriteFactory.ts';
@@ -60,11 +60,15 @@ export class WorldRenderer {
     g.position.set(ground.originPx, ground.originPx);
     this.world.addChild(g);
 
+    const isTag = !!(view as any).isTagTeam;
+    const half = Math.floor(view.coops.length / 2);
+
     const coopLayer = new Container();
     view.coops.forEach((c, i) => {
       const root = new Container();
       root.position.set(px(c.x), px(c.y));
-      const s = new Sprite(sprites.frame(spriteId(`coop_${i % SLOT_COLORS.length}`)));
+      const coopColorIdx = isTag ? (i < half ? 0 : 1) : (i % SLOT_COLORS.length);
+      const s = new Sprite(sprites.frame(spriteId(`coop_${coopColorIdx}`)));
       s.anchor.set(0.5, 0.6);
       const lock = new Sprite(sprites.frame(spriteId('lock')));
       lock.anchor.set(0.5, 1);
@@ -105,9 +109,11 @@ export class WorldRenderer {
     view.roasters.forEach((r, i) => {
       const def = defs.find((d) => d.id === r.roasterId)!;
       const root = new Container();
+      const slotColor = isTag ? (i < half ? TEAM_COLORS.red : TEAM_COLORS.blue) : SLOT_COLORS[i % SLOT_COLORS.length]!;
       const ring = new Sprite(sprites.frame(SHADOW));
       ring.anchor.set(0.5, 0.5);
-      ring.tint = SLOT_COLORS[i % SLOT_COLORS.length]!;
+      ring.position.set(0, 3); // Ground level, directly under roaster feet (body is at 0, 3 with anchor 0.5, 1)
+      ring.tint = slotColor;
       const body = new Sprite(sprites.frame(def.sprite));
       body.anchor.set(0.5, 1);
       body.position.set(0, 3);
@@ -128,8 +134,9 @@ export class WorldRenderer {
       focus.position.set(0, -26);
       focus.tint = 0xffe600;
       focus.visible = false;
-      const num = new PixelText(font, String(i + 1), SLOT_COLORS[i % SLOT_COLORS.length]!, 'center');
-      num.position.set(0, 6);
+      const numLabel = isTag ? (i < half ? `R${i + 1}` : `B${i - half + 1}`) : String(i + 1);
+      const num = new PixelText(font, numLabel, slotColor, 'center');
+      num.position.set(0, 8); // Cleanly beneath ground ring
       root.addChild(ring, body, held, bubble, crown, focus, num);
       roasterLayer.addChild(root);
       this.roasters.push({ root, ring, body, held, bubble, crown, focus, num, def });

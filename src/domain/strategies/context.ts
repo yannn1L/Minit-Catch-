@@ -16,6 +16,8 @@ export interface SimContext {
   readonly bombs: readonly Bomb[];
   readonly rngAi: Rng;
   readonly rngAbility: Rng;
+  readonly isTagTeam?: boolean;
+  teamOf?(slot: number): number;
 
   abilityOf(r: Roaster): AbilityStrategy;
   isShielded(r: Roaster): boolean;

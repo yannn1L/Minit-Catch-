@@ -58,7 +58,14 @@ export function makeCoopSprites(): SpriteDef[] {
 }
 
 export const PROP_SPRITES: readonly SpriteDef[] = [
-  one('ring', { w: argb(0xffffff) }, ['..wwwwww..', '.w......w.', 'w........w', '.w......w.', '..wwwwww..']),
+  one('ring', { w: argb(0xffffff) }, [
+    '...wwwwwwww...',
+    '.wwwwwwwwwwww.',
+    'ww..........ww',
+    'ww..........ww',
+    '.wwwwwwwwwwww.',
+    '...wwwwwwww...',
+  ]),
   one('bomb', { o: argb(0x15151c), g: argb(0x4a4a5c), y: argb(0xffd23f), r: argb(0xff5d3a) }, [
     '....yr.', '...o...', '..ooo..', '.oggoo.', '.ogooo.', '.ooooo.', '..ooo..',
   ]),

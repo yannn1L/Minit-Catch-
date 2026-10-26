@@ -247,13 +247,22 @@ export class SimulationScene implements Scene {
         else if (ev.hits > 0 && ev.ability === 'magnetizer') this.hud.pushBanner(`${n(ev.roaster)} PULLED ${ev.hits} CHICKENS!`);
         break;
       case 'deliver': {
-        let best = -1;
-        let top = 0;
-        let tie = false;
-        for (const c of this.sim.coops) { if (c.score > top) { top = c.score; best = c.slot; tie = false; } else if (c.score === top) tie = true; }
-        const lead = tie ? -1 : best;
-        if (lead >= 0 && lead !== this.leader && top > 1) this.hud.pushBanner(`${n(lead)} TAKES THE LEAD!`);
-        this.leader = lead;
+        if (this.sim.isTagTeam) {
+          const ts = this.sim.teamScores();
+          const teamLead = ts[0] > ts[1] ? 0 : ts[1] > ts[0] ? 1 : -1;
+          if (teamLead >= 0 && teamLead !== this.leader && Math.max(ts[0], ts[1]) > 1) {
+            this.hud.pushBanner(teamLead === 0 ? 'TEAM RED TAKES THE LEAD!' : 'TEAM BLUE TAKES THE LEAD!');
+          }
+          this.leader = teamLead;
+        } else {
+          let best = -1;
+          let top = 0;
+          let tie = false;
+          for (const c of this.sim.coops) { if (c.score > top) { top = c.score; best = c.slot; tie = false; } else if (c.score === top) tie = true; }
+          const lead = tie ? -1 : best;
+          if (lead >= 0 && lead !== this.leader && top > 1) this.hud.pushBanner(`${n(lead)} TAKES THE LEAD!`);
+          this.leader = lead;
+        }
         break;
       }
       default: break;

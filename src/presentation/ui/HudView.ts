@@ -1,5 +1,5 @@
 import { Container, Sprite } from 'pixi.js';
-import { SLOT_COLORS, UI } from '../../data/palette.ts';
+import { SLOT_COLORS, TEAM_COLORS, UI } from '../../data/palette.ts';
 import type { SimView } from '../../sim/Simulation.ts';
 import type { RoasterDef } from '../../shared/types.ts';
 import type { AbilityStrategy } from '../../domain/strategies/ability.ts';
@@ -20,7 +20,7 @@ interface Row { root: Container; swatch: Sprite; name: PixelText; score: PixelTe
 export class HudView {
   readonly root = new Container();
   private readonly rows: Row[] = [];
-  private readonly rowHeight = 9;
+  private rowHeight = 9;
   private readonly timer: PixelText;
   private readonly status: PixelText;
   private readonly hint: PixelText;
@@ -49,11 +49,17 @@ export class HudView {
     this.abilities = abilities;
     this.actions = actions;
 
+    const isTag = !!(view as any).isTagTeam;
+    const half = Math.floor(view.roasters.length / 2);
+    if (view.roasters.length > 10) this.rowHeight = 7;
+
     view.roasters.forEach((r, i) => {
       const def = defs.find((d) => d.id === r.roasterId)!;
       const root = new Container();
-      const swatch = rect(SLOT_COLORS[i % SLOT_COLORS.length]!, 4, 5, 0, 0);
-      const name = label(font, def.name.toUpperCase().slice(0, 6), 6, 0, UI.text);
+      const slotColor = isTag ? (i < half ? TEAM_COLORS.red : TEAM_COLORS.blue) : SLOT_COLORS[i % SLOT_COLORS.length]!;
+      const swatch = rect(slotColor, 4, 5, 0, 0);
+      const tagPrefix = isTag ? (i < half ? `R${i + 1} ` : `B${i - half + 1} `) : '';
+      const name = label(font, (tagPrefix + def.name.toUpperCase()).slice(0, 7), 6, 0, UI.text);
       const score = label(font, '0', 40, 0, UI.text, 'right');
       const barBg = rect(UI.border, 14, 2, 44, 2);
       const bar = rect(UI.good, 14, 2, 44, 2);
@@ -167,6 +173,12 @@ export class HudView {
   }
 
   update(dt: number, view: SimView): void {
+    if ((view as any).isTagTeam) {
+      const ts = (view as any).teamScores?.() ?? [0, 0];
+      this.status.setText(`RED ${ts[0]} · ${ts[1]} BLUE`);
+      this.status.setTint(ts[0] > ts[1] ? TEAM_COLORS.red : ts[1] > ts[0] ? TEAM_COLORS.blue : UI.accent);
+    }
+
     // scoreboard order: points desc, then slot
     const idx = view.coops.map((c) => c.slot).sort((a, b) => view.coops[b]!.score - view.coops[a]!.score || a - b);
     const key = idx.map((i) => `${i}:${view.coops[i]!.score}`).join(',');

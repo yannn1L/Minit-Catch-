@@ -13,8 +13,15 @@ export const PICKUP_CHANNEL_SEC = 0.25; // GDD: 0.2-0.3, fixed midpoint keeps ba
 export const MAX_STUN_SEC = 1.2;
 export const CARRY_SPEED_MULT = 0.85;
 export const CHANNEL_SPEED_MULT = 0.2;
-export const MAX_PARTICIPANTS = 12;
+export const MAX_PARTICIPANTS = 20;
 export const MIN_PARTICIPANTS = 2;
+
+export type MatchMode = 'ffa' | 'tag_team';
+export const TAG_TEAM_SIZES = [2, 3, 4, 5, 6, 7, 8, 9, 10] as const;
+
+export function teamOfSlot(slot: number, participants: number): 0 | 1 {
+  return slot < Math.floor(participants / 2) ? 0 : 1;
+}
 
 export const AI_PERIOD_TICKS = 3; // AI thinks at 10 Hz, staggered by roaster id
 export const ENEMY_AREA_RADIUS = 4.0; // chickens this close to an enemy coop are "camped"

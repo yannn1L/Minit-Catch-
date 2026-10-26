@@ -54,4 +54,26 @@ describe('simulation', () => {
   it('registry misses give a clear message', () => {
     expect(() => regs.roasters.get('nope' as never)).toThrow(/unknown id "nope"/);
   });
+
+  it('supports Tag Team matches from 2v2 up to 10v10 (20 participants)', () => {
+    // 2v2 (4 participants)
+    const tag2v2 = makeConfig(4, 9876);
+    tag2v2.mode = 'tag_team';
+    tag2v2.teamSize = 2;
+    const sim2v2 = runMatch(tag2v2, true);
+    const res2v2 = sim2v2.result();
+    expect(res2v2.mode).toBe('tag_team');
+    expect(res2v2.teamScores).toBeDefined();
+    expect(res2v2.teamScores![0] + res2v2.teamScores![1]).toBeGreaterThanOrEqual(0);
+
+    // 10v10 (20 participants)
+    const tag10v10 = makeConfig(20, 54321);
+    tag10v10.mode = 'tag_team';
+    tag10v10.teamSize = 10;
+    const sim10v10 = runMatch(tag10v10, true);
+    const res10v10 = sim10v10.result();
+    expect(res10v10.mode).toBe('tag_team');
+    expect(res10v10.scores).toHaveLength(20);
+    expect(res10v10.teamScores).toBeDefined();
+  });
 });

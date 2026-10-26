@@ -1,5 +1,5 @@
 import { Container } from 'pixi.js';
-import { SLOT_COLORS, UI } from '../../data/palette.ts';
+import { SLOT_COLORS, TEAM_COLORS, UI } from '../../data/palette.ts';
 import type { MatchResult } from '../../shared/types.ts';
 import type { PixelFont } from './PixelFont.ts';
 import { Button, label, rect } from './widgets.ts';
@@ -42,11 +42,30 @@ export class ResultOverlay {
     const totalH = 16 + (r.overtime ? 8 : 0) + 4 + scoreRows * 7.5 + 4 + lines.length * 7 + 6 + 14 + (replayNote !== '' ? 14 : 0);
     let y = Math.max(4, Math.floor((vh - totalH) / 2));
 
-    const title = r.draw ? 'DRAW!' : `${names[r.winnerSlot]!.toUpperCase()} WINS!`;
-    const t = label(this.font, title, cx, y, SLOT_COLORS[r.winnerSlot % SLOT_COLORS.length]!, 'center');
+    const isTag = r.mode === 'tag_team';
+    let title = r.draw ? 'DRAW!' : `${names[r.winnerSlot]!.toUpperCase()} WINS!`;
+    let titleColor = SLOT_COLORS[r.winnerSlot % SLOT_COLORS.length]!;
+    if (isTag) {
+      if (r.draw || r.winningTeam === -1) {
+        title = 'TAG TEAM DRAW!';
+        titleColor = UI.accent;
+      } else if (r.winningTeam === 0) {
+        title = 'TEAM RED WINS!';
+        titleColor = TEAM_COLORS.red;
+      } else {
+        title = 'TEAM BLUE WINS!';
+        titleColor = TEAM_COLORS.blue;
+      }
+    }
+
+    const t = label(this.font, title, cx, y, titleColor, 'center');
     t.scale.set(2);
     this.root.addChild(t);
     y += 16;
+    if (isTag && r.teamScores) {
+      this.root.addChild(label(this.font, `RED: ${r.teamScores[0]} PTS   BLUE: ${r.teamScores[1]} PTS`, cx, y, UI.accent, 'center'));
+      y += 8;
+    }
     if (r.overtime) { this.root.addChild(label(this.font, 'DECIDED IN OVERTIME', cx, y, UI.accent, 'center')); y += 8; }
     y += 4;
 

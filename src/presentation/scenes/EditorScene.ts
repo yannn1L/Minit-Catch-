@@ -3,7 +3,7 @@ import type { GameContext } from '../../app/GameContext.ts';
 import { arenaId, type AbilityId, type RoasterId } from '../../core/ids.ts';
 import { mulberry32 } from '../../core/rng.ts';
 import { getAbilityDef } from '../../data/abilities.ts';
-import { SLOT_COLORS, UI } from '../../data/palette.ts';
+import { SLOT_COLORS, TEAM_COLORS, UI } from '../../data/palette.ts';
 import { defaultChickenSpawn, MAX_PARTICIPANTS, MIN_PARTICIPANTS } from '../../domain/rules/constants.ts';
 import { validateMatchConfig } from '../../domain/rules/validation.ts';
 import type { RoasterDef } from '../../shared/types.ts';
@@ -14,6 +14,7 @@ import type { Scene } from './Scene.ts';
 import { SimulationScene } from './SimulationScene.ts';
 
 const PRESETS = [2, 4, 7, 9] as const;
+const TAG_TEAM_PRESETS = [2, 3, 4, 5] as const;
 const SPEEDS = [0.5, 1, 2, 4] as const;
 const ZOOM_LEVELS = [0, 1, 2, 3, 4] as const;
 const ZOOM_LABELS = ['AUTO', '1X', '2X', '3X', '4X'] as const;
@@ -114,6 +115,25 @@ export class EditorScene implements Scene {
     this.build();
   }
 
+  private setMode(mode: 'ffa' | 'tag_team'): void {
+    const cfg = this.ctx.config;
+    cfg.mode = mode;
+    if (mode === 'tag_team') {
+      const size = cfg.teamSize ?? Math.max(2, Math.min(10, Math.floor(cfg.participants / 2)));
+      this.setTagTeamSize(size);
+    } else {
+      this.setParticipants(cfg.participants);
+    }
+  }
+
+  private setTagTeamSize(size: number): void {
+    const cfg = this.ctx.config;
+    const clamped = Math.max(2, Math.min(10, size));
+    cfg.mode = 'tag_team';
+    cfg.teamSize = clamped;
+    this.setParticipants(clamped * 2);
+  }
+
   private commitSeed(): void {
     const v = Number(this.seedText);
     this.ctx.config.seed = Number.isInteger(v) && v >= 1 && v <= 0xffffffff ? v : this.ctx.config.seed;
@@ -143,7 +163,14 @@ export class EditorScene implements Scene {
     if (errs.length > 0) { this.error = errs[0]!; this.build(); return; }
     this.hideRoasterTooltip();
     this.ctx.audio.play('go');
-    this.ctx.scenes.goto(new SimulationScene(this.ctx, { ...cfg, roasterIds: [...cfg.roasterIds], chickenSpawn: { ...cfg.chickenSpawn }, observer: { ...cfg.observer } }));
+    this.ctx.scenes.goto(new SimulationScene(this.ctx, {
+      ...cfg,
+      mode: cfg.mode ?? 'ffa',
+      teamSize: cfg.teamSize,
+      roasterIds: [...cfg.roasterIds],
+      chickenSpawn: { ...cfg.chickenSpawn },
+      observer: { ...cfg.observer },
+    }));
   }
 
   private showRoasterTooltip(def: RoasterDef, globalX: number, globalY: number): void {
@@ -219,17 +246,63 @@ export class EditorScene implements Scene {
     this.content.addChild(settingsBtn);
     ly += 14;
 
-    // ---- participants
-    this.content.addChild(label(font, `PARTICIPANTS ${cfg.participants}`, lx, ly, UI.dim));
-    ly += 8;
-    let bx = lx;
-    for (const n of PRESETS) {
-      this.content.addChild(new Button(font, String(n), bx, ly, 14, 11, () => this.setParticipants(n)).setSelected(cfg.participants === n));
-      bx += 16;
+    // ---- game mode
+    const isTag = cfg.mode === 'tag_team';
+    this.content.addChild(label(font, 'GAME MODE', lx, ly, UI.dim));
+    const soloBtn = new Button(font, 'SOLO / FFA', lx + 50, ly - 2, 48, 10, () => {
+      this.setMode('ffa');
+      audio.play('ui');
+    }).setSelected(!isTag);
+    const tagBtn = new Button(font, 'TAG TEAM', lx + 100, ly - 2, 46, 10, () => {
+      this.setMode('tag_team');
+      audio.play('ui');
+    }).setSelected(isTag);
+    this.content.addChild(soloBtn, tagBtn);
+    ly += 13;
+
+    // ---- participants / team size
+    if (!isTag) {
+      this.content.addChild(label(font, `PLAYERS ${cfg.participants}`, lx, ly, UI.dim));
+      ly += 8;
+      let bx = lx;
+      for (const n of PRESETS) {
+        this.content.addChild(new Button(font, String(n), bx, ly, 14, 11, () => {
+          this.setParticipants(n);
+          audio.play('ui');
+        }).setSelected(cfg.participants === n));
+        bx += 16;
+      }
+      this.content.addChild(new Button(font, '-', bx, ly, 11, 11, () => {
+        this.setParticipants(Math.max(MIN_PARTICIPANTS, cfg.participants - 1));
+        audio.play('ui');
+      }));
+      this.content.addChild(new Button(font, '+', bx + 13, ly, 11, 11, () => {
+        this.setParticipants(Math.min(MAX_PARTICIPANTS, cfg.participants + 1));
+        audio.play('ui');
+      }));
+      ly += 15;
+    } else {
+      const curTeamSize = cfg.teamSize ?? Math.max(2, Math.floor(cfg.participants / 2));
+      this.content.addChild(label(font, `TAG TEAM: ${curTeamSize}v${curTeamSize} (${cfg.participants} PLAYERS)`, lx, ly, UI.accent));
+      ly += 8;
+      let bx = lx;
+      for (const s of TAG_TEAM_PRESETS) {
+        this.content.addChild(new Button(font, `${s}v${s}`, bx, ly, 22, 11, () => {
+          this.setTagTeamSize(s);
+          audio.play('ui');
+        }).setSelected(curTeamSize === s));
+        bx += 24;
+      }
+      this.content.addChild(new Button(font, '-1', bx, ly, 13, 11, () => {
+        this.setTagTeamSize(Math.max(2, curTeamSize - 1));
+        audio.play('ui');
+      }));
+      this.content.addChild(new Button(font, '+1', bx + 15, ly, 13, 11, () => {
+        this.setTagTeamSize(Math.min(10, curTeamSize + 1));
+        audio.play('ui');
+      }));
+      ly += 15;
     }
-    this.content.addChild(new Button(font, '-', bx, ly, 11, 11, () => this.setParticipants(Math.max(MIN_PARTICIPANTS, cfg.participants - 1))));
-    this.content.addChild(new Button(font, '+', bx + 13, ly, 11, 11, () => this.setParticipants(Math.min(MAX_PARTICIPANTS, cfg.participants + 1))));
-    ly += 15;
 
     // ---- match duration / timer
     this.content.addChild(label(font, `MATCH TIMER: ${cfg.durationSec}S`, lx, ly, UI.dim));
@@ -263,7 +336,9 @@ export class EditorScene implements Scene {
     ly += 15;
 
     // ---- roster grid with hover tooltip
-    this.content.addChild(label(font, 'ROSTER (TAP: CHANGE / HOVER: INFO)', lx, ly, UI.dim));
+    const half = Math.floor(cfg.participants / 2);
+    const rosterTitle = isTag ? 'ROSTER (RED TEAM vs BLUE TEAM)' : 'ROSTER (TAP: CHANGE / HOVER: INFO)';
+    this.content.addChild(label(font, rosterTitle, lx, ly, isTag ? UI.accent : UI.dim));
     ly += 8;
     const cw = 37;
     const ch = 32;
@@ -275,12 +350,14 @@ export class EditorScene implements Scene {
       const cy = ly + Math.floor(i / cols) * ch;
       const cell = new Container();
       cell.position.set(cx, cy);
-      cell.addChild(rect(UI.border, cw - 2, ch - 2), rect(UI.panel, cw - 4, ch - 4, 1, 1), rect(SLOT_COLORS[i % SLOT_COLORS.length]!, cw - 4, 1, 1, 1));
+      const cardAccent = isTag ? (i < half ? TEAM_COLORS.red : TEAM_COLORS.blue) : SLOT_COLORS[i % SLOT_COLORS.length]!;
+      cell.addChild(rect(UI.border, cw - 2, ch - 2), rect(UI.panel, cw - 4, ch - 4, 1, 1), rect(cardAccent, cw - 4, 1, 1, 1));
       const icon = new Sprite(this.ctx.sprites.frame(def.sprite));
       icon.anchor.set(0.5, 0);
       icon.position.set(Math.floor((cw - 2) / 2), 4);
       cell.addChild(icon);
-      cell.addChild(label(font, def.name.toUpperCase().slice(0, 6), Math.floor((cw - 2) / 2), 20, UI.text, 'center'));
+      const displayName = isTag ? (i < half ? `R${i + 1} ` : `B${i - half + 1} `) + def.name.toUpperCase().slice(0, 4) : def.name.toUpperCase().slice(0, 6);
+      cell.addChild(label(font, displayName, Math.floor((cw - 2) / 2), 20, UI.text, 'center'));
       cell.eventMode = 'static';
       cell.cursor = 'pointer';
 
