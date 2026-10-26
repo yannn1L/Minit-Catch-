@@ -56,7 +56,7 @@ export class EditorScene implements Scene {
   }
 
   enter(): void {
-    this.ctx.audio.startBgm();
+    this.ctx.audio.playTrack('editor');
     this.ctx.audio.setDucked(false);
     window.addEventListener('wheel', this.onWheel, { passive: true });
 
@@ -280,8 +280,7 @@ export class EditorScene implements Scene {
       icon.anchor.set(0.5, 0);
       icon.position.set(Math.floor((cw - 2) / 2), 4);
       cell.addChild(icon);
-      cell.addChild(label(font, def.name.toUpperCase().slice(0, 6), Math.floor((cw - 2) / 2), 19, UI.text, 'center'));
-      cell.addChild(label(font, this.abilityLabel(def.ability), Math.floor((cw - 2) / 2), 25, UI.dim, 'center'));
+      cell.addChild(label(font, def.name.toUpperCase().slice(0, 6), Math.floor((cw - 2) / 2), 20, UI.text, 'center'));
       cell.eventMode = 'static';
       cell.cursor = 'pointer';
 
@@ -401,56 +400,103 @@ export class EditorScene implements Scene {
     backdrop.cursor = 'default';
     this.overlayLayer.addChild(backdrop);
 
-    const mw = Math.min(vw - 16, 184);
+    const mw = Math.min(vw - 16, 186);
     const modal = new Container();
 
-    let sy = 20;
+    let sy = 16;
 
-    // 1. Audio toggle
-    const audioBtn = new Button(font, audio.isMuted ? 'SOUND: MUTED' : 'SOUND: ENABLED', 8, sy, mw - 16, 11, () => {
-      audio.toggleMute();
-      this.build();
-    }).setSelected(!audio.isMuted);
-    modal.addChild(audioBtn);
-    sy += 15;
+    // Helper for interactive horizontal volume stepper [-] [■■■■□□□□□□] [+]
+    const addVolumeRow = (title: string, getVal: () => number, setVal: (v: number) => void): void => {
+      const cur = getVal();
+      const pct = Math.max(0, Math.min(10, Math.round(cur * 10)));
 
-    // 2. Match Timer
-    modal.addChild(label(font, `MATCH TIMER: ${cfg.durationSec}S`, 8, sy, UI.dim));
-    sy += 8;
-    const presets = [10, 20, 30, 60] as const;
-    let mxTimer = 8;
-    for (const d of presets) {
-      modal.addChild(
-        new Button(font, `${d}S`, mxTimer, sy, 18, 10, () => {
-          cfg.durationSec = d;
-          this.build();
-        }).setSelected(cfg.durationSec === d),
-      );
-      mxTimer += 20;
-    }
-    modal.addChild(
-      new Button(font, '-5S', mxTimer, sy, 16, 10, () => {
-        cfg.durationSec = Math.max(5, cfg.durationSec - 5);
+      // Title & percentage value
+      modal.addChild(label(font, title, 8, sy, UI.dim));
+      modal.addChild(label(font, `${pct * 10}%`, mw - 34, sy, UI.accent));
+      sy += 8;
+
+      // Minus button
+      const btnMinus = new Button(font, '-', 8, sy, 12, 10, () => {
+        setVal(Math.max(0, (pct - 1) / 10));
+        audio.play('ui');
         this.build();
-      }),
-    );
-    modal.addChild(
-      new Button(font, '+5S', mxTimer + 18, sy, 16, 10, () => {
-        cfg.durationSec = Math.min(180, cfg.durationSec + 5);
+      });
+      modal.addChild(btnMinus);
+
+      // Interactive 10-step horizontal bar
+      const barX = 22;
+      const barW = mw - 54;
+      const barH = 10;
+      const bar = new Container();
+      bar.position.set(barX, sy);
+      bar.addChild(rect(0x14141e, barW, barH));
+
+      const segGap = 1;
+      const segW = Math.max(2, Math.floor((barW - 2 - segGap * 9) / 10));
+      for (let s = 0; s < 10; s++) {
+        const active = s < pct;
+        const sx = 1 + s * (segW + segGap);
+        const segColor = active ? (s < 7 ? 0x44cc77 : (s < 9 ? 0xf0c030 : 0xff4444)) : 0x222230;
+        bar.addChild(rect(segColor, segW, barH - 2, sx, 1));
+      }
+
+      bar.eventMode = 'static';
+      bar.cursor = 'pointer';
+      bar.on('pointerdown', (e: FederatedPointerEvent) => {
+        const localX = e.getLocalPosition(bar).x;
+        const frac = Math.max(0, Math.min(1, localX / barW));
+        const step = Math.round(frac * 10);
+        setVal(step / 10);
+        audio.play('ui');
         this.build();
-      }),
-    );
+      });
+      modal.addChild(bar);
+
+      // Plus button
+      const btnPlus = new Button(font, '+', barX + barW + 2, sy, 12, 10, () => {
+        setVal(Math.min(1, (pct + 1) / 10));
+        audio.play('ui');
+        this.build();
+      });
+      modal.addChild(btnPlus);
+
+      sy += 14;
+    };
+
+    // 1. Four dedicated volume channels
+    addVolumeRow('GLOBAL SOUND', () => audio.masterVolume, (v) => { audio.masterVolume = v; });
+    addVolumeRow('SFX VOLUME', () => audio.sfxVolume, (v) => { audio.sfxVolume = v; });
+    addVolumeRow('EDITOR BGM', () => audio.editorBgmVolume, (v) => { audio.editorBgmVolume = v; });
+    addVolumeRow('MATCH BGM', () => audio.simBgmVolume, (v) => { audio.simBgmVolume = v; });
+
+    // 2. Mute toggle
+    const muteBtn = new Button(
+      font,
+      audio.isMuted ? 'SOUND: MUTED (CLICK TO UNMUTE)' : 'SOUND: ACTIVE (CLICK TO MUTE)',
+      8,
+      sy,
+      mw - 16,
+      11,
+      () => {
+        audio.toggleMute();
+        this.build();
+      },
+    ).setSelected(!audio.isMuted);
+    modal.addChild(muteBtn);
     sy += 14;
 
-    // 3. Hide Hint in Arena Scene
+    // Divider
+    modal.addChild(rect(UI.border, mw - 16, 1, 8, sy));
+    sy += 4;
+
+    // 3. Display options (arena HUD & controls)
     const hideHintBtn = new Button(font, cfg.observer.hideHints ? 'HINT BAR: HIDDEN' : 'HINT BAR: VISIBLE', 8, sy, mw - 16, 11, () => {
       cfg.observer.hideHints = !cfg.observer.hideHints;
       this.build();
     }).setSelected(!!cfg.observer.hideHints);
     modal.addChild(hideHintBtn);
-    sy += 14;
+    sy += 13;
 
-    // 4. Hide Touch Controls in Arena Scene
     const hideCtlBtn = new Button(font, cfg.observer.hideControls ? 'BOTTOM BUTTONS: HIDDEN' : 'BOTTOM BUTTONS: VISIBLE', 8, sy, mw - 16, 11, () => {
       cfg.observer.hideControls = !cfg.observer.hideControls;
       this.build();
@@ -458,57 +504,26 @@ export class EditorScene implements Scene {
     modal.addChild(hideCtlBtn);
     sy += 14;
 
-    // 5. Random Arena
-    const rndArenaBtn = new Button(font, cfg.observer.randomArena ? 'RANDOM ARENA: ON' : 'RANDOM ARENA: OFF', 8, sy, mw - 16, 11, () => {
-      cfg.observer.randomArena = !cfg.observer.randomArena;
-      this.build();
-    }).setSelected(!!cfg.observer.randomArena);
-    modal.addChild(rndArenaBtn);
-    sy += 14;
-
-    // 6. Random Seed
-    const rndSeedBtn = new Button(font, cfg.observer.randomSeed ? 'RANDOM SEED: ON' : 'RANDOM SEED: OFF', 8, sy, mw - 16, 11, () => {
-      cfg.observer.randomSeed = !cfg.observer.randomSeed;
-      this.build();
-    }).setSelected(!!cfg.observer.randomSeed);
-    modal.addChild(rndSeedBtn);
-    sy += 14;
-
-    // 7. Camera Zoom Option
-    modal.addChild(label(font, 'CAM ZOOM', 8, sy + 1, UI.dim));
-    let zx = 8 + 42;
-    for (let i = 0; i < ZOOM_LEVELS.length; i++) {
-      const zVal = ZOOM_LEVELS[i]!;
-      const zw = i === 0 ? 22 : 15;
-      const zBtn = new Button(font, ZOOM_LABELS[i]!, zx, sy, zw, 10, () => {
-        cfg.observer.zoom = zVal;
-        this.build();
-      }).setSelected((cfg.observer.zoom ?? 0) === zVal);
-      modal.addChild(zBtn);
-      zx += zw + 2;
-    }
-    sy += 15;
-
-    // 8. Done Button
+    // 4. Done button
     const doneBtn = new Button(font, 'DONE', Math.floor((mw - 46) / 2), sy, 46, 12, () => {
       this.showSettings = false;
       this.build();
     }).setSelected(true);
     modal.addChild(doneBtn);
-    sy += 16;
+    sy += 15;
 
-    const mh = Math.min(vh - 8, sy + 4);
+    const mh = Math.min(vh - 8, sy + 3);
     const mx = Math.floor((vw - mw) / 2);
     const my = Math.max(4, Math.floor((vh - mh) / 2));
     modal.position.set(mx, my);
 
-    // Background boxes behind controls
+    // Background container
     const bgContainer = new Container();
     bgContainer.addChild(rect(UI.border, mw, mh, 0, 0));
     bgContainer.addChild(rect(UI.panel, mw - 2, mh - 2, 1, 1));
     bgContainer.addChild(rect(UI.accent, mw - 2, 2, 1, 1));
-    bgContainer.addChild(label(font, 'SETTINGS', 8, 5, UI.accent));
-    const closeBtn = new Button(font, 'X', mw - 14, 4, 10, 10, () => {
+    bgContainer.addChild(label(font, 'SETTINGS', 8, 4, UI.accent));
+    const closeBtn = new Button(font, 'X', mw - 14, 3, 10, 10, () => {
       this.showSettings = false;
       this.build();
     });
@@ -516,11 +531,6 @@ export class EditorScene implements Scene {
     modal.addChildAt(bgContainer, 0);
 
     this.overlayLayer.addChild(modal);
-  }
-
-  private abilityLabel(id: string): string {
-    const ab = getAbilityDef(id as AbilityId);
-    return ab ? ab.label : id.slice(0, 6).toUpperCase();
   }
 
   onKey(e: KeyboardEvent, down: boolean): void {

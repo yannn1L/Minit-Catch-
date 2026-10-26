@@ -65,6 +65,7 @@ export class SimulationScene implements Scene {
 
   enter(): void {
     const { regs, sprites, font, audio } = this.ctx;
+    audio.playTrack('sim');
     this.sim = new Simulation(this.config, regs);
     const view: SimView = this.sim.view;
     const defs = this.sim.roasters.map((r) => regs.roasters.get(r.roasterId));
@@ -94,6 +95,7 @@ export class SimulationScene implements Scene {
         this.syncHud();
       },
       onExit: () => {
+        this.ctx.audio.playTrack('editor');
         this.ctx.scenes.goto(new EditorScene(this.ctx));
       },
     });
@@ -282,7 +284,10 @@ export class SimulationScene implements Scene {
       v.h,
       note,
       () => this.ctx.scenes.goto(new SimulationScene(this.ctx, this.config, this.result?.eventHash ?? null, true)),
-      () => this.ctx.scenes.goto(new EditorScene(this.ctx)),
+      () => {
+        this.ctx.audio.playTrack('editor');
+        this.ctx.scenes.goto(new EditorScene(this.ctx));
+      },
     );
   }
 

@@ -159,7 +159,6 @@ Jika ingin membuat **Ability Baru**:
      {
        id: id('flame_dash'),
        role: 'Speedster',
-       label: 'FLAME',
        maxStunSec: 0,
        countersDisable: true,
        make: () => createFlameDash(id('flame_dash'), { cooldown: 6 }),
